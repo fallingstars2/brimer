@@ -1,6 +1,5 @@
 import os
 import re
-import urllib.parse
 from bs4 import BeautifulSoup
 from urllib.parse import unquote
 
@@ -67,11 +66,12 @@ def complete_md_st(st_raw):
     给定一个 st|| 串，自动补全第四家手牌，返回新的 st|| 串
     """
     # 先拆出 md 部分
-    md_match = re.search(r'md\|[1234](.*?)\|', st_raw)
+    md_match = re.search(r'md\|([1234])(.*?)\|', st_raw)
     if not md_match:
         raise ValueError("未找到 md 部分！")
-    md_data = md_match.group(1)
-
+    number = md_match.group(1)  # 这个是开头的 1~4
+    md_data = md_match.group(2) # 这个是手牌内容
+    # print(f"<UNK> md <UNK> {md_data}")
     # 前三家
     hands = md_data.split(',')
     if len(hands) < 3:
@@ -104,8 +104,8 @@ def complete_md_st(st_raw):
         fourth_hand += "".join(sorted(cards, key=lambda x: ranks.index(x)))
 
     # 重新拼接新的 md
-    new_md = f"md|1{hand1},{hand2},{hand3},{fourth_hand}|"
-
+    new_md = f"md|{number}{hand1},{hand2},{hand3},{fourth_hand}|"
+    # print(f"<UNK> md <UNK> {new_md}")
     # 替换原 md
     new_st = re.sub(r'md\|[1234].*?\|', new_md, st_raw)
 
