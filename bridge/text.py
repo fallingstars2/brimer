@@ -2,10 +2,9 @@ import urllib.parse
 from pydantic import BaseModel
 
 lin_decoded = """
-st||md|2S9AH2568JD5TQAC6A,S34TH9KD2689C2TJQ,S2578KH34QD7JKC57,SQJ6HAT7D43CK9843|rh||ah|Board 4|sv|b|mb|p|mb|p|mb|p|mb|1N|an|notrump opener. Could have 5M. -- 2-5 !C; 2-5 !D; 2-5 !H; 2-5 !S; 15-|mb|p|mb|2H!|an|Jacoby transfer -- 5+ !S; 11- HCP; 12- total points |mb|p|mb|2S|an|Transfer completed to S -- 2-5 !C; 2-5 !D; 2-5 !H; 2-5 !S; 15-17 HCP;|mb|p|mb|2N|an|Invitational to either game -- 5 !S; 9 HCP |mb|p|mb|p|mb|p|pc|CQ|pc|C5|pc|C4|pc|C6|pc|CJ|pc|C7|pc|C8|pc|CA|pc|D5|pc|D8|pc|DK|pc|D3|pc|DJ|pc|D4|pc|DT|pc|D6|pc|D7|pc|H7|pc|DQ|pc|D9|pc|DA|pc|D2|pc|H3|pc|HT|pc|SA|pc|S3|pc|S2|pc|S6|pc|S9|pc|ST|pc|SK|pc|SJ|pc|S8|pc|SQ|pc|H2|pc|S4|pc|CK|pc|H5|pc|C2|pc|S5|pc|C9|pc|H6|pc|CT|pc|S7|pc|H9|pc|H4|pc|HA|pc|H8|pc|C3|pc|HJ|pc|HK|pc|HQ|
+st||md|1SKT87652HK5DA9CA5,SQ4HJT97DQ8732CJ9,SAJH43D654CKT8642,S93HAQ862DKJTCQ73|sv|B|ah|Board 7|mb|1S|an|Major suit opening -- 5+ !S; 11-21 HCP; 12-22 total points|mb|P|mb|1N|an|Forcing one notrump -- 3- !S; 6+ HCP; 12- total points|mb|D|an|Takeout double -- 3+ !C; 3+ !D; 4+ !H; 2- !S; 13+ total points|mb|2S|an|6+ !S; 14-18 total points|mb|P|mb|P|mb|P|pc|HJ|pc|H3|pc|HA|pc|H5|pc|S9|pc|S2|pc|SQ|pc|SA|pc|C2|pc|C3|pc|CA|pc|C9|pc|C5|pc|CJ|pc|CK|pc|C7|pc|C4|pc|CQ|pc|S8|pc|D2|pc|S5|pc|S4|pc|SJ|pc|S3|pc|CT|pc|H6|pc|D9|pc|H7|mc|12|
 """
 import re
-from urllib.parse import unquote
 from pydantic import BaseModel
 
 class BridgeTools(BaseModel):
@@ -61,29 +60,25 @@ class BridgeTools(BaseModel):
         return result
     
     @staticmethod
-    def get_final_contract(jiao: list[str]) -> (str,str):
-        """
-        根据叫牌序列，返回最终定约：
-        例如：
-            ['1H', '1S', 'p', '2H', 'p', '2S', 'p', 'p', 'p'] -> 2S
-        若无人叫牌，则返回 'Pass Out'
-        """
-        # 去掉后缀空格等
-        map = ["n","e","s","w"]
-        calls = [c.strip().upper() for c in jiao]
+    def get_final_contract(bids: list[tuple]) -> (str,str):
+        # 只保留非 Pass
+        valid_bids = [bid for bid in bids if bid[1] != 'P']
         
-        # 检查是否至少有一个非 Pass
-        non_pass = [c for c in calls if c != 'P' and c != 'PASS']
-        if not non_pass:
-            return "Pass Out"
+        # 最后一个有效叫牌就是定约
+        final_bid = valid_bids[-1]  # 例如 ('w', '3N')
+        final_level = final_bid[1][0]  # '3'
+        final_suit = final_bid[1][1:]  # 'N'
         
-        # 叫牌结束条件：最后三个 Pass
-        if calls[-3:] != ['P', 'P', 'P']:
-            raise ValueError("叫牌还没结束（最后三个不是 Pass）")
-        n = len(calls)
-        # 定约就是最后一个非 Pass
-        final_contract = non_pass[-1]
-        return (map[n%4],final_contract)
+        # 找到第一个叫出这个花色的人
+        dealer = None
+        for who, call in valid_bids:
+            level = call[0]
+            suit = call[1:]
+            if suit == final_suit:
+                dealer = who
+                break
+        # print((dealer.lower(),final_bid[1]))
+        return (dealer.lower(),final_bid[1])
     
     @staticmethod
     def who_win_this_trick(chu: list[tuple[str, str]], contract: str) -> str:
@@ -168,7 +163,7 @@ class BridgeItem(BaseModel):
     w: list[str]
     zhuang: tuple[str,str]  # 庄家方向
     is_ju: str | None = None
-    jiao: list[str]
+    jiao: list[tuple]
     chu: list  # 出牌顺序，包含分墩
     
     @classmethod
@@ -219,15 +214,25 @@ class BridgeItem(BaseModel):
             chu.append(trick)
         
         n,e,s,w = BridgeTools.split_hand_string(hand_map["N"]),BridgeTools.split_hand_string(hand_map["E"]),BridgeTools.split_hand_string(hand_map["S"]),BridgeTools.split_hand_string(hand_map["W"])
+        # 下标从 0 开始
+        jiao2 = []
+        i = 0
+        dealer_map0 = {"3":"1","1":"1","2":"3","4":"3"} # 非常诡异的庄家和映射，就这样吧，恶心死了前面那个移位
+        order_new = dealer_map[dealer_map0.get(dealer_num)]
+        while i < len(jiao):
+            dir1 = order_new[i % 4].lower()  # 循环 NESW
+            bid = jiao[i]
+            jiao2.append((dir1, bid))
+            i += 1
         # ========= 5️⃣ 返回实例 =========
         return cls(
             n=n,
             e=e,
             s=s,
             w=w,
-            zhuang=BridgeTools.get_final_contract(jiao),
+            zhuang=BridgeTools.get_final_contract(jiao2),
             is_ju=is_ju,   # 可以根据需要扩展
-            jiao=jiao,
+            jiao=jiao2,
             chu = BridgeTools.assign_players_by_cards(chu,n,e,s,w)
         )
     
@@ -235,120 +240,10 @@ class BridgeItem(BaseModel):
 
 if __name__ == "__main__":
     item = BridgeItem.from_lin(lin_decoded)
-    print(item)
+    print("\n\n",item)
     print(BridgeTools.who_win_this_trick(item.chu[1],item.zhuang[1]))
     c = item.chu[0]
     c[2]=None
     c[3]=None
     print(c)
     print(BridgeTools.next_player_and_legal_cards(c,item.n))
-# def lin_decoder(lin_encoded:list[str]):
-#     l_items = []
-#     for l in lin_encoded:
-#         item = {}
-#         l_decoded = urllib.parse.unquote(l.strip())
-#         fields = l_decoded.split('|')
-#         # 3. 准备解析容器
-#         metadata = {}
-#         calls = []
-#         call_explanations = []
-#         play_cards = []
-#         # 4. 解析字段
-#         i = 0
-#         while i < len(fields):
-#             tag = fields[i]
-#             if tag == 'md':
-#                 metadata['hands'] = fields[i+1]
-#                 i += 2
-#             elif tag == 'sv':
-#                 metadata['vul'] = fields[i+1]
-#                 i += 2
-#             elif tag == 'ah':
-#                 metadata['board'] = fields[i+1]
-#                 i += 2
-#             elif tag == 'mb':
-#                 calls.append(fields[i+1])
-#                 i += 2
-#             elif tag == 'an':
-#                 call_explanations.append(fields[i+1])
-#                 i += 2
-#             elif tag == 'pc':
-#                 play_cards.append(fields[i+1])
-#                 i += 2
-#             elif tag == 'mc':
-#                 metadata['mc'] = fields[i+1]
-#                 i += 2
-#             else:
-#                 i += 1
-#         item["is_ju"]=metadata.get('vul')
-#
-#         print(fields)
-#
-#     return l_items
-# lin_decoder([lin_encoded])
-# # 1. URL解码
-# lin_decoded = urllib.parse.unquote(lin_encoded.strip())
-#
-# # 2. 按 | 分割
-# fields = lin_decoded.split('|')
-#
-# # 3. 准备解析容器
-# metadata = {}
-# calls = []
-# call_explanations = []
-# play_cards = []
-#
-# # 4. 解析字段
-# i = 0
-# while i < len(fields):
-#     tag = fields[i]
-#     if tag == 'md':
-#         metadata['hands'] = fields[i+1]
-#         i += 2
-#     elif tag == 'sv':
-#         metadata['vul'] = fields[i+1]
-#         i += 2
-#     elif tag == 'ah':
-#         metadata['board'] = fields[i+1]
-#         i += 2
-#     elif tag == 'mb':
-#         calls.append(fields[i+1])
-#         i += 2
-#     elif tag == 'an':
-#         call_explanations.append(fields[i+1])
-#         i += 2
-#     elif tag == 'pc':
-#         play_cards.append(fields[i+1])
-#         i += 2
-#     elif tag == 'mc':
-#         metadata['mc'] = fields[i+1]
-#         i += 2
-#     else:
-#         i += 1
-#
-# # 5. 打印解析结果
-#
-# print("==== 基本信息 ====")
-# print(f"牌局: {metadata.get('board')}")
-# print(f"易位: {metadata.get('vul')} (0=无)")
-# print(f"已记录墩数: {metadata.get('mc')}")
-#
-# print("\n==== 四家手牌 ====")
-# hands = metadata['hands']
-# # md|3SKT8HAKJT73DK7CT7,S32H85D8653CAQ852,S65HQ42DAQJT42C63,SAQJ974H96D9CKJ94
-# dealer = hands[0]
-# hands_data = hands[1:].split(',')
-# directions = ['N', 'E', 'S', 'W']
-# dealer_dir = directions[int(dealer)-1]
-# print(f"庄家: {dealer_dir}")
-# for d, hand in zip(['N', 'E', 'S', 'W'], hands_data):
-#     print(f"{d}: {hand}")
-#
-# print("\n==== 叫牌顺序 ====")
-# for c, a in zip(calls, call_explanations + ['']*(len(calls)-len(call_explanations))):
-#     print(f"{c:>4} {a}")
-#
-# print("\n==== 出牌顺序 ====")
-# for idx, pc in enumerate(play_cards, start=1):
-#     print(f"{idx:02d}: {pc}")
-

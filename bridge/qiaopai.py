@@ -54,28 +54,25 @@ class BridgeTools(BaseModel):
 		return result
 	
 	@staticmethod
-	def get_final_contract(jiao: list[str]) -> str:
-		"""
-		根据叫牌序列，返回最终定约：
-		例如：
-			['1H', '1S', 'p', '2H', 'p', '2S', 'p', 'p', 'p'] -> 2S
-		若无人叫牌，则返回 'Pass Out'
-		"""
-		# 去掉后缀空格等
-		calls = [c.strip().upper() for c in jiao]
+	def get_final_contract(bids: list[tuple]) -> (str,str):
+		# 只保留非 Pass
+		valid_bids = [bid for bid in bids if bid[1] != 'P']
 		
-		# 检查是否至少有一个非 Pass
-		non_pass = [c for c in calls if c != 'P' and c != 'PASS']
-		if not non_pass:
-			return "Pass Out"
+		# 最后一个有效叫牌就是定约
+		final_bid = valid_bids[-1]  # 例如 ('w', '3N')
+		final_level = final_bid[1][0]  # '3'
+		final_suit = final_bid[1][1:]  # 'N'
 		
-		# 叫牌结束条件：最后三个 Pass
-		if calls[-3:] != ['P', 'P', 'P']:
-			raise ValueError("叫牌还没结束（最后三个不是 Pass）")
-		
-		# 定约就是最后一个非 Pass
-		final_contract = non_pass[-1]
-		return final_contract
+		# 找到第一个叫出这个花色的人
+		dealer = None
+		for who, call in valid_bids:
+			level = call[0]
+			suit = call[1:]
+			if suit == final_suit:
+				dealer = who
+				break
+		# print((dealer.lower(),final_bid[1]))
+		return (dealer.lower(),final_bid[1])
 	
 	@staticmethod
 	def who_win_this_trick(chu: list[tuple[str, str]], contract: str) -> str:
@@ -97,7 +94,6 @@ class BridgeTools(BaseModel):
 		first_suit = chu[0][1][0]
 		
 		def card_score(card):
-			suit = card[0]
 			rank = card[1:]
 			return rank_value[rank]
 		
@@ -161,14 +157,14 @@ class BridgeItem(BaseModel):
 	w: list[str]
 	zhuang: tuple[str,str]  # 庄家方向
 	is_ju: str | None = None
-	jiao: list[str]
+	jiao: list[tuple]
 	chu: list  # 出牌顺序，包含分墩
 	
 	@classmethod
 	def from_lin(cls, lin_decoded: str) -> "BridgeItem":
 		# ========= 1️⃣ 解析庄家 =========
 		sv_match = re.search(r"sv\|([a-z])\|", lin_decoded)
-		zhuang = sv_match.group(1) if sv_match else None
+		is_ju = sv_match.group(1) if sv_match else None
 		
 		# ========= 2️⃣ 解析手牌 =========
 		md_match = re.search(r"md\|([1234])(.*?)\|", lin_decoded)
@@ -212,15 +208,25 @@ class BridgeItem(BaseModel):
 			chu.append(trick)
 		
 		n,e,s,w = BridgeTools.split_hand_string(hand_map["N"]),BridgeTools.split_hand_string(hand_map["E"]),BridgeTools.split_hand_string(hand_map["S"]),BridgeTools.split_hand_string(hand_map["W"])
+		# 下标从 0 开始
+		jiao2 = []
+		i = 0
+		dealer_map0 = {"3":"1","1":"1","2":"3","4":"3"} # 非常诡异的庄家和映射，就这样吧，恶心死了前面那个移位
+		order_new = dealer_map[dealer_map0.get(dealer_num)]
+		while i < len(jiao):
+			dir1 = order_new[i % 4].lower()  # 循环 NESW
+			bid = jiao[i]
+			jiao2.append((dir1, bid))
+			i += 1
 		# ========= 5️⃣ 返回实例 =========
 		return cls(
 			n=n,
 			e=e,
 			s=s,
 			w=w,
-			zhuang=(zhuang,BridgeTools.get_final_contract(jiao)),
-			is_ju=None,   # 可以根据需要扩展
-			jiao=jiao,
+			zhuang=BridgeTools.get_final_contract(jiao2),
+			is_ju=is_ju,   # 可以根据需要扩展
+			jiao=jiao2,
 			chu = BridgeTools.assign_players_by_cards(chu,n,e,s,w)
 		)
 
