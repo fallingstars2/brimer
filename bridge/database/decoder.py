@@ -4,21 +4,23 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote
 
 # ======= 1️⃣ 文件夹 & 输出 =======
-input_dir = "output"   # 你的 HTML 文件夹
+input_dir = "output"  # 你的 HTML 文件夹
 output_file = "output/decoder_all.txt"
+
+
 def decoder_brige():
     # ======= 2️⃣ 存放所有提取到的 lin =======
     all_lins = []
-    
+
     # ======= 3️⃣ 遍历文件夹下所有 .html 文件 =======
     for filename in os.listdir(input_dir):
         if filename.endswith(".html"):
             file_path = os.path.join(input_dir, filename)
             print(f"\n🔍 正在处理：{file_path}")
-            
+
             with open(file_path, "r", encoding="utf-8") as f:
                 html = f.read()
-            
+
             # -------------------------------
             # 先用正则提取 URL 里的 lin=
             # -------------------------------
@@ -30,7 +32,7 @@ def decoder_brige():
                     print(f"✅ [URL] lin: {lin_decoded[:50]}...")
             else:
                 print("⚠️ [URL] 没找到 lin")
-            
+
             # -------------------------------
             # 再用 BeautifulSoup 提取 hv_popuplin 的 st||
             # -------------------------------
@@ -52,12 +54,12 @@ def decoder_brige():
                             print("⚠️ [Movie] 没找到 st 部分")
                     else:
                         print("⚠️ [Movie] 没匹配到 hv_popuplin")
-    
+
     # ======= 4️⃣ 保存 =======
     with open(output_file, "w", encoding="utf-8") as f_out:
         for lin in all_lins:
             f_out.write(lin + "\n")
-    
+
     print(f"\n✔️ 共提取到 {len(all_lins)} 条 lin/st，已保存到：{output_file}")
 
 
@@ -66,14 +68,14 @@ def complete_md_st(st_raw):
     给定一个 st|| 串，自动补全第四家手牌，返回新的 st|| 串
     """
     # 先拆出 md 部分
-    md_match = re.search(r'md\|([1234])(.*?)\|', st_raw)
+    md_match = re.search(r"md\|([1234])(.*?)\|", st_raw)
     if not md_match:
         raise ValueError("未找到 md 部分！")
     number = md_match.group(1)  # 这个是开头的 1~4
-    md_data = md_match.group(2) # 这个是手牌内容
+    md_data = md_match.group(2)  # 这个是手牌内容
     # print(f"<UNK> md <UNK> {md_data}")
     # 前三家
-    hands = md_data.split(',')
+    hands = md_data.split(",")
     if len(hands) < 3:
         raise ValueError("md 不完整！")
 
@@ -107,16 +109,17 @@ def complete_md_st(st_raw):
     new_md = f"md|{number}{hand1},{hand2},{hand3},{fourth_hand}|"
     # print(f"<UNK> md <UNK> {new_md}")
     # 替换原 md
-    new_st = re.sub(r'md\|[1234].*?\|', new_md, st_raw)
+    new_st = re.sub(r"md\|[1234].*?\|", new_md, st_raw)
 
     return new_st
+
 
 def format_md_st():
     input_file = "output/decoder_all.txt"
     output_file = "output/decoder_all.txt"
-    
+
     results = []
-    
+
     with open(input_file, "r", encoding="utf-8") as f_in:
         for line in f_in:
             line = line.strip()
@@ -128,14 +131,14 @@ def format_md_st():
                 print(f"✅ 已处理：{new_st[:60]}...")
             except Exception as e:
                 results.append(line)
-    
+
     with open(output_file, "w", encoding="utf-8") as f_out:
         for item in results:
             f_out.write(item + "\n")
-    
+
     print(f"\n✔️ 全部完成，已保存到 {output_file}")
 
 
 if __name__ == "__main__":
-    decoder_brige() # 解码获得最终表示
-    format_md_st() # 统一解码形式方便之后解析
+    decoder_brige()  # 解码获得最终表示
+    format_md_st()  # 统一解码形式方便之后解析

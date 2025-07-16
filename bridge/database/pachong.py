@@ -7,16 +7,18 @@ from urllib.parse import urlparse
 CHROME_PATH = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 START_URL = "https://www.bridgebase.com/v3/app/lv"
 TARGET_PAGES = [
-"https://www.bridgebase.com/myhands/hands.php?tourney=90031-1752545161-&username=olafssonm",
-"https://www.bridgebase.com/myhands/hands.php?tourney=90031-1752545161-&username=Baloo_rus&from_login=0"
+    "https://www.bridgebase.com/myhands/hands.php?tourney=90031-1752545161-&username=olafssonm",
+    "https://www.bridgebase.com/myhands/hands.php?tourney=90031-1752545161-&username=Baloo_rus&from_login=0",
 ]
 OUTPUT_DIR = "output"
+
 
 # 可选：从文件批量加载
 def load_target_pages(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
     return [line.strip() for line in lines if line.strip()]
+
 
 # ====== 爬虫逻辑 ======
 def main():
@@ -47,12 +49,14 @@ def main():
             except TimeoutError:
                 print(f"❌ 跳转超时：{link}")
                 continue
-            
+
             # 使用 tourney 参数作为文件名
             filename_base = link.split("tourney=")[-1].split("&")[0]
-            safe_filename = filename_base.replace("/", "").replace(":", "").strip() or "index"
+            safe_filename = (
+                filename_base.replace("/", "").replace(":", "").strip() or "index"
+            )
             html_filename = os.path.join(OUTPUT_DIR, f"{safe_filename}.html")
-            
+
             # txt_filename = os.path.join(OUTPUT_DIR, f"{filename_base}.txt")
 
             # 保存完整 HTML
@@ -88,6 +92,6 @@ def main():
 
         browser.close()
 
+
 if __name__ == "__main__":
     main()
-

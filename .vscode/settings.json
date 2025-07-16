@@ -1,0 +1,14 @@
+{
+    "python.linting.enabled": true,
+    "python.linting.ruffEnabled": true,
+    "python.linting.mypyEnabled": true,
+    "python.linting.mypyArgs": [
+        "--ignore-missing-imports"
+    ],
+    "python.formatting.provider": "black",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true,
+        "source.fixAll": true
+    },
+    "editor.formatOnSave": true
+}
