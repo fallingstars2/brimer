@@ -306,8 +306,12 @@ def daochu(BridgeItem) -> list[tuple[list,list]]:  # 最终通过该类构造出
             if j < l_jiao:
                 data.append(BridgeItem.jiao[j][0])
                 if len(BridgeItem.jiao[j][1]) == 1:
-                    data.append(BridgeItem.jiao[j][1])
-                    data.append(BridgeItem.jiao[j][1])
+                    if BridgeItem.jiao[j][1] == "D": # 单个的D为dabble,换为X
+                        data.append("X")
+                        data.append("X")
+                    else: # 否则就正常加入
+                        data.append(BridgeItem.jiao[j][1])
+                        data.append(BridgeItem.jiao[j][1])
                 else:
                     data.append(BridgeItem.jiao[j][1][0])
                     data.append(BridgeItem.jiao[j][1][1])
@@ -355,11 +359,11 @@ def mask_data(data: list, i, zhuang) -> list[tuple[list, list]] | list[None]:
                     continue
                 data_new[value:value+26] = ["<mask>"] * 26
             # 将庄家全部隐匿<mask> # 115-116 117-132是庄家
-            data_new[115:133] = ["<mask>"] * 18
+            data_new[115:133] = ["<None>"] * 18
             # 将当前的叫牌隐匿
             data_new[133+j*3:136+j*3] = ["<mask>"] * 3
             # 将当前之后的所有全部设置为None
-            data_new[136+j*3:] = ["<mask>"] * (len(data_new) - (136 + j*3))
+            data_new[136+j*3:] = ["<None>"] * (len(data_new) - (136 + j*3))
             j+=1
             result.append((["<jiao>"]+data_new,data_new))
         return result
@@ -387,7 +391,7 @@ def mask_data(data: list, i, zhuang) -> list[tuple[list, list]] | list[None]:
     # 其次再将当前的出牌掩蔽    178-180 1轮
     data_new[178+i*3:181+i*3] = ["<mask>"]*3
     # 最后将所有的后续全部变为<None>
-    data_new[181+i*3:] = ["None"] * (len(data_new) - (181 + i*3))
+    data_new[181+i*3:] = ["<None>"] * (len(data_new) - (181 + i*3))
     
     """
     掩蔽策略： 在每一组的第一个添加一个元素为当前预测的策略，分为预测叫牌<jiao>，出牌<pre>2种。
