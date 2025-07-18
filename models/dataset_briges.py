@@ -39,7 +39,7 @@ vocab = [
 token2id = {tok: i for i, tok in enumerate(vocab)}
 id2token = {i: tok for tok, i in token2id.items()}
 
-vocab_size = len(vocab)
+vocab_size = len(vocab) # 30
 
 
 # 自定义 Dataset 类
