@@ -8,24 +8,21 @@ class BrimerTools(BaseModel):
     判断该条训练数据使用的损失函数计算（因为蒙版预测不需要顺序，因此需要将label尽可能地匹配现有的推理）。
     通过模型结果推理得到最终的输出结果（加入判断出牌可能）。
     """
+
     @staticmethod
-    def get_embeddings(x,embeddings):
-	    """
-	    该方法用于通过输入和词嵌入字典得到最终的模型输入表示。
-	    """
-	    return embeddings
-    
-    
-    
+    def get_embeddings(x, embeddings):
+        """
+        该方法用于通过输入和词嵌入字典得到最终的模型输入表示。
+        """
+        return embeddings
+
     @staticmethod
-    def fix_label(y_pred,label):
-	    """
-	    该方法通过传入预测值和真实label，返回label经过最大匹配后的y_pred和label形式，能够直接做交叉熵损失。
-	    """
-	    return y_pred,label
-    
-    
-    
+    def fix_label(y_pred, label):
+        """
+        该方法通过传入预测值和真实label，返回label经过最大匹配后的y_pred和label形式，能够直接做交叉熵损失。
+        """
+        return y_pred, label
+
     @staticmethod
     def next_player_and_legal_cards(
         trick: list,  # 形如 [('w', 'D5'), ('n', 'S2'), None, None]

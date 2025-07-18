@@ -244,7 +244,7 @@ class BridgeItem(BaseModel):
             zhuang=BridgeTools.get_final_contract(jiao2),
             is_ju=is_ju,  # 可以根据需要扩展
             jiao=jiao2,
-            chu =chu,
+            chu=chu,
             # chu=BridgeTools.assign_players_by_cards(chu, n, e, s, w),
         )
 

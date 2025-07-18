@@ -232,7 +232,7 @@ class BridgeItem(BaseModel):
         order_new = dealer_map[dealer_map0.get(dealer_num)]
         while i < len(jiao):
             dir1 = order_new[i % 4].lower()  # 循环 NESW
-            bid = jiao[i].upper() # 全部变为大写
+            bid = jiao[i].upper()  # 全部变为大写
             jiao2.append((dir1, bid))
             i += 1
         # ========= 5️⃣ 返回实例 =========
@@ -247,20 +247,23 @@ class BridgeItem(BaseModel):
             chu=BridgeTools.assign_players_by_cards(chu, n, e, s, w),
         )
 
-def daochu(BridgeItem) -> list[tuple[list,list]]:  # 最终通过该类构造出模型输入所需要的所有的数据
+
+def daochu(
+    BridgeItem,
+) -> list[tuple[list, list]]:  # 最终通过该类构造出模型输入所需要的所有的数据
     """
     特殊字符<mask>为不知道的字段，训练时有一个目标预测。<None>为已经没有的字段，不需要预测。<cls>为分类任务的目标，这里有三个（角色，花色，大小）。
     一个BridgeItem应该可以导出52个训练数据（预测每一次出牌，另外在预测的同时增加预测其他人手牌的任务）。
     最终导出为List[list]数据，外层长度为52，内层长度应该为334。保存为pkl数据，方便之后读取。
-    
+
     在后续的处理中加入预测不同任务时的提示词<pre>和<cls>。所以后续的所有索引全部+=1
-    
+
     最终索引0-2是预测，3 4-29 30 是第n的手牌 31 32-57 58 是e的手牌
     59 60-85 86是s的手牌 87 88-113 114 是w的手牌
-    
+
     115-116 117-132是庄家
     133-177 是叫牌
-    
+
     178-180 1轮
     181-183 2轮
     .....
@@ -306,10 +309,10 @@ def daochu(BridgeItem) -> list[tuple[list,list]]:  # 最终通过该类构造出
             if j < l_jiao:
                 data.append(BridgeItem.jiao[j][0])
                 if len(BridgeItem.jiao[j][1]) == 1:
-                    if BridgeItem.jiao[j][1] == "D": # 单个的D为dabble,换为X
+                    if BridgeItem.jiao[j][1] == "D":  # 单个的D为dabble,换为X
                         data.append("X")
                         data.append("X")
-                    else: # 否则就正常加入
+                    else:  # 否则就正常加入
                         data.append(BridgeItem.jiao[j][1])
                         data.append(BridgeItem.jiao[j][1])
                 else:
@@ -318,14 +321,14 @@ def daochu(BridgeItem) -> list[tuple[list,list]]:  # 最终通过该类构造出
             else:
                 data.append("<None>")
                 data.append("<None>")
-                data.append("<None>") # 表示没有后续叫牌了
+                data.append("<None>")  # 表示没有后续叫牌了
         # 出牌阶段
         for j in range(13):
-            for z in range(4): # 第j轮第z个
+            for z in range(4):  # 第j轮第z个
                 data.append(BridgeItem.chu[j][z][0])
                 data.append(BridgeItem.chu[j][z][1][0])
                 data.append(BridgeItem.chu[j][z][1][1])
-        masked_data = mask_data(data,i,BridgeItem.zhuang[0]) # 添加蒙版
+        masked_data = mask_data(data, i, BridgeItem.zhuang[0])  # 添加蒙版
         for m in masked_data:  # 将所有的处理训练数据加入到最终的返回中
             if m:
                 result.append(m)
@@ -334,65 +337,65 @@ def daochu(BridgeItem) -> list[tuple[list,list]]:  # 最终通过该类构造出
         assert len(r[0]) == 335 and len(r[1]) == 334
     return result
 
+
 def mask_data(data: list, i, zhuang) -> list[tuple[list, list]] | list[None]:
     """
     该函数接收当前步数：i 和拼凑完成的data，并且还有庄家，完成对data的mask替换处理
     首先找到庄家处理手牌
     """
     result = []
-    hush_dict={"n":4,"s":60,"e":32,"w":88}
+    hush_dict = {"n": 4, "s": 60, "e": 32, "w": 88}
     if i == 0:  # 表示为预测叫牌
         # 133-177 是叫牌
-        jiao = data[133:178] # 开始根据叫牌挨个构造数据集。
+        jiao = data[133:178]  # 开始根据叫牌挨个构造数据集。
         j = 0
         while True:
             data_new = copy.deepcopy(data)
-            if j>=15:
+            if j >= 15:
                 break
-            jiao0 = jiao[j*3:(j+1)*3] # 获取当前叫牌
-            jiao_r = jiao0[0] # 当前叫牌的角色。
+            jiao0 = jiao[j * 3 : (j + 1) * 3]  # 获取当前叫牌
+            jiao_r = jiao0[0]  # 当前叫牌的角色。
             if jiao_r == "<None>":
                 break
             # 将其他人全部隐匿<mask>。
-            for key,value in hush_dict.items():
+            for key, value in hush_dict.items():
                 if key == jiao_r:
                     continue
-                data_new[value:value+26] = ["<mask>"] * 26
+                data_new[value : value + 26] = ["<mask>"] * 26
             # 将庄家全部隐匿<mask> # 115-116 117-132是庄家
             data_new[115:133] = ["<None>"] * 18
             # 将当前的叫牌隐匿
-            data_new[133+j*3:136+j*3] = ["<mask>"] * 3
+            data_new[133 + j * 3 : 136 + j * 3] = ["<mask>"] * 3
             # 将当前之后的所有全部设置为None
-            data_new[136+j*3:] = ["<None>"] * (len(data_new) - (136 + j*3))
-            j+=1
-            result.append((["<jiao>"]+data_new,data_new))
+            data_new[136 + j * 3 :] = ["<None>"] * (len(data_new) - (136 + j * 3))
+            j += 1
+            result.append((["<jiao>"] + data_new, data_new))
         return result
-    
-    
-    num = random.random()+0.05 # 不希望被去掉太多
-    if abs(1-i/32) >= num:
+
+    num = random.random() + 0.05  # 不希望被去掉太多
+    if abs(1 - i / 32) >= num:
         return [None]
     # 现在预测出牌
-    mash_dict = {"n":"s","s":"n","w":"e","e":"w"}
-    ming = mash_dict.get(zhuang) # 得到当前的明手
-    
-    chu = data[178+i*3:181+i*3] # 当前的出牌
-    r = chu[0] # 当前的出牌人
-    if ming==r: # 如果出牌人就是角色，则
-        ming = zhuang # 则庄家本次充当明手
-    
+    mash_dict = {"n": "s", "s": "n", "w": "e", "e": "w"}
+    ming = mash_dict.get(zhuang)  # 得到当前的明手
+
+    chu = data[178 + i * 3 : 181 + i * 3]  # 当前的出牌
+    r = chu[0]  # 当前的出牌人
+    if ming == r:  # 如果出牌人就是角色，则
+        ming = zhuang  # 则庄家本次充当明手
+
     data_new = copy.deepcopy(data)
     # 首先将除了明手和当前手的所有手牌掩蔽<mask>。
-    for key,value in hush_dict.items():
-        if key in [ming,r]:
+    for key, value in hush_dict.items():
+        if key in [ming, r]:
             continue
         else:
-            data_new[value:value+26] = ["<mask>"] * 26
+            data_new[value : value + 26] = ["<mask>"] * 26
     # 其次再将当前的出牌掩蔽    178-180 1轮
-    data_new[178+i*3:181+i*3] = ["<mask>"]*3
+    data_new[178 + i * 3 : 181 + i * 3] = ["<mask>"] * 3
     # 最后将所有的后续全部变为<None>
-    data_new[181+i*3:] = ["<None>"] * (len(data_new) - (181 + i*3))
-    
+    data_new[181 + i * 3 :] = ["<None>"] * (len(data_new) - (181 + i * 3))
+
     """
     掩蔽策略： 在每一组的第一个添加一个元素为当前预测的策略，分为预测叫牌<jiao>，出牌<pre>2种。
     分别对应不同的损失函数计算方法，并且引导模型完成不同的任务。
@@ -416,25 +419,49 @@ def mask_data(data: list, i, zhuang) -> list[tuple[list, list]] | list[None]:
 class Bridges(BaseModel):  # 批量加载桥牌对局
     items: list[BridgeItem]
 
-import os
+
 def load_all_data(lin_path):
     result = []
-    j = 1
+    j = 1  # 文件编号
+    count = 0  # 当前批次数据条数
+    total_count = 0  # 总数据条数
+    batch_size = 10000
+
     with open(lin_path, "r", encoding="utf-8") as f:
-        for line in f:
+        for line_num, line in enumerate(f, start=1):
             lin_decoded = line.strip()
             if not lin_decoded:
                 continue
             b = BridgeItem.from_lin(lin_decoded)
             try:
-                result += daochu(b)
+                items = daochu(b)
+                result.extend(items)
+                count += len(items)
+                total_count += len(items)
             except Exception as e:
-                print(f"第{j}行的数据有问题")
-            j+=1
-    with open("bridges_dataset.pkl", "wb") as f:
-        pickle.dump(result, f)
-    print(f"一共保存了 {len(result)} 条数据")
+                print(f"第{line_num}行的数据有问题: {e}")
+
+            # 满1万条就保存当前文件，并清空result
+            if count >= batch_size:
+                filename = f"bridges_dataset_part{j}.pkl"
+                with open(filename, "wb") as fw:
+                    pickle.dump(result, fw)
+                print(f"保存文件 {filename}，共 {len(result)} 条数据")
+                j += 1
+                count = 0
+                result = []
+
+    # 循环结束后，如果还有剩余数据，保存到最后一个文件
+    if result:
+        filename = f"bridges_dataset_part{j}.pkl"
+        with open(filename, "wb") as fw:
+            pickle.dump(result, fw)
+        print(f"保存文件 {filename}，共 {len(result)} 条数据")
+
+    print(f"一共保存了 {total_count} 条数据")
     return True
+
+
 if __name__ == "__main__":
     load_all_data(lin_path="database/output/decoder_all.txt")
     # lin_decoded = """
